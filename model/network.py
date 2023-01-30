@@ -69,7 +69,7 @@ class Unet3_SNU(torch.nn.Module):
         iou = []
         cnt = []
         ########iouの計算#####
-        for i in range(1,6):
+        for i in range(0, 12):
             output = np.where(outputs>i,1,0)
             label = np.where(labels>0,1,0)
             intersection = (np.uint64(output) & np.uint64(label)).sum((1,2)) # will be zero if Trueth=0 or Prediction=0
@@ -139,7 +139,13 @@ class Unet3_SNU(torch.nn.Module):
         #m,_=torch.sum(out_rec,1)
         ##発火スパイクの足し合わせ↓##
         m =torch.sum(out_rec,1) #m.shape: torch.Size([256, 10]) for classifiartion
+        ##ここで各ピクセルのスパイク数をheatに入れる
         heat = m
+        #ヒートマップ2値再現
+        # if m >= torch.tensor(4):
+        #     heat = 1
+        # else:
+        #     heat = 0
         #m = m/self.num_time
         # m : out_rec(21step)を時間軸で積算したもの
         # 出力mと教師信号yの形式を統一する
@@ -213,7 +219,7 @@ class Unet2a_SNU(torch.nn.Module):
         iou = []
         cnt = []
         ########iouの計算#####
-        for i in range(1,6):
+        for i in range(0,12):
             output = np.where(outputs>i,1,0)
             label = np.where(labels>0,1,0)
             intersection = (np.uint64(output) & np.uint64(label)).sum((1,2)) # will be zero if Trueth=0 or Prediction=0
@@ -300,7 +306,7 @@ class Unet2a_SNU(torch.nn.Module):
         if self.power:
             return loss, m, out_rec, iou, cnt, total_spike_count
         else:
-            return loss, m, out_rec, iou, cnt
+            return loss, m, out_rec, iou, cnt,None
 ######################################################################################################################
 ########################
 ##U-net_2層結合ver(10/24～)[notification:batchsize 16 only work]
@@ -749,7 +755,7 @@ class revisedSNU2_Network(torch.nn.Module):
         iou = []
         cnt = []
         #####iouの計算####
-        for i in range(1,6):
+        for i in range(0, 12):
             output = np.where(outputs>i,1,0)
             label = np.where(labels>0,1,0)
             intersection = (np.uint64(output) & np.uint64(label)).sum((1,2)) # will be zero if Trueth=0 or Prediction=0
@@ -1167,6 +1173,9 @@ class SNU_Network(torch.nn.Module):
             return loss, m, out_rec, iou, cnt
         
 class SNU_Network_classification(torch.nn.Module):
+    """
+    ニューロンモデル:SNU ネットワーク:Encoder-Decoder
+    """
     def __init__(self, n_in=784, n_mid=256, n_out=10,
                  num_time=20, l_tau=0.8, soft=False, gpu=False,
                  test_mode=False):
@@ -1271,11 +1280,8 @@ class SNU_Network_classification(torch.nn.Module):
         #loss += self.gamma*torch.sum(m**2)
         #print("gamma loss",loss)
         
-        
-
-        
         if self.test_mode == True:
-            return loss, accuracy, h1_list, h2_list, h3_list, out_list
+            return loss, acc, h1_list, h2_list, h3_list, out_list
         else:
             return loss, m, out_rec,acc
 

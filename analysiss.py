@@ -1,3 +1,6 @@
+##使い方
+## python analysis.py --b 1 --d --p →　heatmap
+
 #snu
 import numpy as np
 import seaborn as sns
@@ -95,10 +98,6 @@ model.load_state_dict(torch.load(model_path))
 model_hide = model_hide.to(device)
 model_path = f'models/revised-SNU.pth'
 model_hide.load_state_dict(torch.load(model_path))
-
-
-
-
  
 #こっちは指定した番号を見れる
 # while 1:
@@ -124,92 +123,144 @@ model_hide.load_state_dict(torch.load(model_path))
 #     plt.show()
 
 ##こっちは1から順に結果を見れる
-num = 0
-while num < 16640:
+num_test_data = len(test_iter)
+ious = {}
+ious['my'] = [0]* 12
+print(type(ious))
+ious['hide'] = [0]* 12
     # n = int(input("何番目のデータ見たい？"))
-    with torch.no_grad():
-        for i, (inputs, labels, name) in enumerate(test_iter):
-            # print(i)
-            # if i == n:
-            #     print("ok")
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            loss, pred, _, iou, cnt, total_spike_count, heat = model(inputs, labels)
-            loss, pred, _, iou, cnt, total_spike_count, heat_hide = model_hide(inputs, labels)
-            pred,_ = torch.max(pred,1)
-            #     break
-            labels = labels.to('cpu').detach().numpy().copy()
-            heat = heat.to('cpu').detach().numpy().copy()
-            labels = np.reshape(labels,(64,64))
-            heat = np.reshape(heat,(64,64))
+with torch.no_grad():
+    for i, (inputs, labels, name) in enumerate(tqdm(test_iter)):
+        # print(i)
+        # if i == n:
+        #     print("ok")
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+        loss, pred, _, iou, cnt, total_spike_count, heat = model(inputs, labels)
+        loss, pred, _, iou_hide, cnt, total_spike_count, heat_hide = model_hide(inputs, labels)
+        pred,_ = torch.max(pred,1)
 
-            heat_hide = heat_hide.to('cpu').detach().numpy().copy()
-            heat_hide = np.reshape(heat_hide,(64,64))
+        for idx, score in enumerate(iou):
+            #print(score)
+            ious['my'][idx] += score
+        for idx, score in enumerate(iou_hide):
+            #print(score)
+            ious['hide'][idx] += score
+        labels = labels.to('cpu').detach().numpy().copy()
+        heat = heat.to('cpu').detach().numpy().copy()
+        labels = np.reshape(labels,(64,64))
+        ##スパイクの閾値を設定。今回は4本スパイク発生した場合に危険のピクセルと判定。無くすと
+        heat = np.where(heat >= 4,1,0)
+        heat = np.reshape(heat,(64,64))
+        # print('##########')
+        # print((heat))　→　各ピクセルのスパイク列を記述
+        # print(type(heat))　→　スパイクの型。ndarray
+        # print('##########')
+        heat_hide = heat_hide.to('cpu').detach().numpy().copy()
+        ##スパイクの閾値を設定。今回は4本スパイク発生した場合に危険のピクセルと判定
+        heat_hide = np.where(heat_hide >= 4,1,0)
+        heat_hide = np.reshape(heat_hide,(64,64))
 
-            # fig, (ax1,ax2,ax3) = plt.subplots(1, 3)
-            # fig = plt.figure(figsize=(4,4))
-            # ax1 = fig.add_subplot(1,3,1)
-            # ax1.set_title("Input")
-            # ax2 = fig.add_subplot(1,3,2)
-            # ax2.set_title("U-Net heatmap")
-            # ax3 = fig.add_subplot(1,3,3)
-            # ax3.set_title('revised -SNU heatmap')
-            # # ax1.set_aspect('equal')
-            # # ax2.set_aspect('equal')
-            # # ax3.set_aspect('equal')
-            # sns.heatmap(labels, ax=ax1, cmap='CMRmap')
-            # sns.heatmap(heat, ax=ax2, cmap='jet')
-            # sns.heatmap(heat_hide, ax=ax3, cmap='jet')
+##ヒートマップ系##
+        # # fig, (ax1,ax2,ax3) = plt.subplots(1, 3)
+        # # fig = plt.figure(figsize=(4,4))
+        # # ax1 = fig.add_subplot(1,3,1)
+        # # ax1.set_title("Input")
+        # # ax2 = fig.add_subplot(1,3,2)
+        # # ax2.set_title("U-Net heatmap")
+        # # ax3 = fig.add_subplot(1,3,3)
+        # # ax3.set_title('revised -SNU heatmap')
+        # # # ax1.set_aspect('equal')
+        # # # ax2.set_aspect('equal')
+        # # # ax3.set_aspect('equal')
+        # # sns.heatmap(labels, ax=ax1, cmap='CMRmap')
+        # # sns.heatmap(heat, ax=ax2, cmap='jet')
+        # # sns.heatmap(heat_hide, ax=ax3, cmap='jet')
 
-            fig,(ax1,ax2,ax3) = plt.subplots(1,3, constrained_layout = True)
-            #fig,(ax1) = plt.subplots(1,1, constrained_layout = True)
+        # fig,(ax1,ax2,ax3) = plt.subplots(1,3, constrained_layout = True)
+        # #fig,(ax1) = plt.subplots(1,1, constrained_layout = True)
 
-            # ax1 = fig.add_subplot(1,3,1)
-            # ax2 = fig.add_subplot(1,3,2)
-            # ax3 = fig.add_subplot(1,3,3)
-            # ax1.set_ylim(0,65)
-            # ax1.set_xlim(0,65)
-            ax1.set_title("Ground Truth")
-            ax1.set_xticks([])
-            ax1.set_yticks([])
+        # # ax1 = fig.add_subplot(1,3,1)
+        # # ax2 = fig.add_subplot(1,3,2)
+        # # ax3 = fig.add_subplot(1,3,3)
+        # # ax1.set_ylim(0,65)
+        # # ax1.set_xlim(0,65)
+        # ax1.set_title("Ground Truth")
+        # ax1.set_xticks([])
+        # ax1.set_yticks([])
 
-            # ax2.set_ylim(0,65)
-            # ax2.set_xlim(0,65)
-            # ax2.set_xticks(np.arange(0,64,16))
-            # ax2.set_yticks(np.arange(0,64,16))
-            ax2.set_title("revised-SNU heatmap")
-            ax2.set_xticks([])
-            ax2.set_yticks([])
-            # ax3.set_ylim(0,65)
-            # ax3.set_xlim(0,65)
-            ax3.set_title('U-Net heatmap')
-            ax3.set_xticks([])
-            ax3.set_yticks([])
+        # # ax2.set_ylim(0,65)
+        # # ax2.set_xlim(0,65)
+        # # ax2.set_xticks(np.arange(0,64,16))
+        # # ax2.set_yticks(np.arange(0,64,16))
+        # ax2.set_title("revised-SNU heatmap")
+        # ax2.set_xticks([])
+        # ax2.set_yticks([])
+        # # ax3.set_ylim(0,65)
+        # # ax3.set_xlim(0,65)
+        # ax3.set_title('U-Net heatmap')
+        # ax3.set_xticks([])
+        # ax3.set_yticks([])
 
-            # ax1.set_aspect('equal')
-            # ax2.set_aspect('equal')
-            # ax3.set_aspect('equal')
+        # # ax1.set_aspect('equal')
+        # # ax2.set_aspect('equal')
+        # # ax3.set_aspect('equal')
 
-            im1 = ax1.imshow(labels,aspect = 'equal',cmap = 'gray')
-            im2 = ax2.imshow(heat_hide,aspect = 'equal', cmap="jet")
-            im3 = ax3.imshow(heat,aspect = 'equal', cmap="jet")
+        # im1 = ax1.imshow(labels,aspect = 'equal',cmap = 'gray')
+        # im2 = ax2.imshow(heat_hide,aspect = 'equal')
+        # im3 = ax3.imshow(heat,aspect = 'equal')
 
-            divider1 = make_axes_locatable(ax1)
-            cax1 = divider1.append_axes("right", size="5%", pad=0.05)
-            fig.colorbar(im1, ax=ax1, cax=cax1,ticks = [0,1])
-            
-            divider2 = make_axes_locatable(ax2)
-            cax2 = divider2.append_axes("right", size="5%", pad=0.05)
-            fig.colorbar(im2, ax=ax2, cax=cax2, ticks = [0,11])
+        # divider1 = make_axes_locatable(ax1)
+        # cax1 = divider1.append_axes("right", size="5%", pad=0.05)
+        # fig.colorbar(im1, ax=ax1, cax=cax1,ticks = [0,1])
+        
+        # divider2 = make_axes_locatable(ax2)
+        # cax2 = divider2.append_axes("right", size="5%", pad=0.05)
+        # fig.colorbar(im2, ax=ax2, cax=cax2, ticks = [0,1])
 
-            divider3 = make_axes_locatable(ax3)
-            cax3 = divider3.append_axes("right", size="5%", pad=0.05)
-            fig.colorbar(im3, ax=ax3, cax=cax3, ticks = [0,11])
+        # divider3 = make_axes_locatable(ax3)
+        # cax3 = divider3.append_axes("right", size="5%", pad=0.05)
+        # fig.colorbar(im3, ax=ax3, cax=cax3, ticks = [0,1])
 
-            # filename = "heatmap_fig\heat_"+str(i+1)+".png"
-            # plt.savefig(filename)
-            fig.tight_layout()
-            plt.show()
-            num += 1
-#print(total_spike_count)
+        # filename = "heatmap_fig\heat_"+str(i+1)+".png"
+        # #plt.savefig(filename)
+        # fig.tight_layout()
+        # plt.show()
+#############
 
+        #if i == 3:break
+        #print('#####')
+# print((ious['my']))
+# print((ious['hide']))
+
+##IOU比較##
+for key in ious.keys():
+    ious[key] = list(map(lambda x: (x/num_test_data)*100, ious[key]))
+my_max_iou = max(ious['my'])
+hide_max_iou = max(ious['hide'])
+##object型##
+x = [0,1,2,3,4,5,6,7,8,9,10,11]
+y1 = ious['my']#my_ious
+y2 = ious['hide']
+plt.plot(x,y1)
+plt.plot(x,y2)
+plt.legend(['U-Net'],['Encoder-Decoder'])
+plt.show()
+#print(type(ious['hide']))#hide_ious,class 'list
+
+# plt.plot(ious['my'])
+# plt.plot(ious['hide'])
+# plt.xlabel('number of spikes for hazard threshold')
+# plt.ylabel('Accuracy [%]')
+# plt.xlim(0,11)
+# plt.ylim(0,100)
+# plt.xticks(np.arange(0,12,1))
+# plt.yticks(np.arange(0,101,10))
+# plt.vlines(4,ymin=0,ymax=my_max_iou,colors='red')
+# plt.hlines(my_max_iou,xmin=0,xmax=4,colors='red')
+# plt.hlines(hide_max_iou,xmin=0,xmax=4,colors='red')
+# plt.legend()
+# print('DONE')
+# print(my_max_iou,hide_max_iou)
+#plt.show()
+###
